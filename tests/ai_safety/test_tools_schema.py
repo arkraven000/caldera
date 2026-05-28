@@ -32,3 +32,16 @@ def test_all_tools_have_input_schema():
         assert 'description' in spec
         assert 'input_schema' in spec
         assert spec['input_schema']['type'] == 'object'
+
+
+def test_dispatch_keys_match_tool_spec_names():
+    """The standalone client's DISPATCH table MUST cover every advertised tool
+    (and vice-versa) — otherwise the model can call something the dispatcher rejects,
+    or the dispatcher exposes something the model never sees."""
+    from tools.claude_agent.tools import DISPATCH
+    spec_names = {spec['name'] for spec in CALDERA_TOOL_SPECS}
+    dispatch_names = set(DISPATCH.keys())
+    missing_in_dispatch = spec_names - dispatch_names
+    missing_in_spec = dispatch_names - spec_names
+    assert missing_in_dispatch == set(), f'tools declared but not implemented: {missing_in_dispatch}'
+    assert missing_in_spec == set(), f'tools implemented but not declared: {missing_in_spec}'

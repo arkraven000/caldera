@@ -75,12 +75,39 @@ class CalderaClient:
     async def list_links(self, operation_id: str):
         return await self._request('GET', f'/api/v2/operations/{operation_id}/links') or []
 
+    async def list_potential_links(self, operation_id: str, paw: str = None):
+        """Return Caldera's currently-runnable candidate links as display dicts.
+
+        Caldera's POST /potential-links endpoint EXECUTES the submitted link, so we
+        use GET for "what *could* run right now" — the LLM picks one and execute_link
+        POSTs that full display dict back unchanged.
+        """
+        path = f'/api/v2/operations/{operation_id}/potential-links'
+        if paw:
+            path += f'/{paw}'
+        return await self._request('GET', path) or []
+
     async def propose_link(self, operation_id: str, ability_id: str, paw: str):
-        body = {'paw': paw, 'ability': {'ability_id': ability_id}}
-        return await self._request('POST', f'/api/v2/operations/{operation_id}/potential-links', json=body)
+        """Find the candidate link matching (ability_id, paw) without executing it.
+
+        Returns the full link display dict suitable for handing to execute_link.
+        """
+        candidates = await self.list_potential_links(operation_id, paw=paw)
+        for link in candidates:
+            ability = link.get('ability') or {}
+            if ability.get('ability_id') == ability_id and link.get('paw') == paw:
+                return link
+        return {'error': f'no runnable link found for ability_id={ability_id} paw={paw}',
+                'candidates_count': len(candidates)}
 
     async def execute_link(self, operation_id: str, link_payload: dict):
-        return await self._request('POST', f'/api/v2/operations/{operation_id}/potential-links', json=link_payload)
+        """Submit a link payload for execution. Payload MUST be the full display dict
+        returned by list_potential_links / propose_link — executor.name and executor.command
+        are required by Caldera's validator."""
+        if not link_payload or 'executor' not in link_payload or 'paw' not in link_payload:
+            return {'error': 'execute_link payload must include executor (with name+command) and paw'}
+        return await self._request('POST', f'/api/v2/operations/{operation_id}/potential-links',
+                                   json=link_payload)
 
     async def get_link(self, operation_id: str, link_id: str):
         links = await self.list_links(operation_id)

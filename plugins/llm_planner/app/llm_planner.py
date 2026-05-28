@@ -136,7 +136,6 @@ class LogicalPlanner:
             await self.audit.record('executed_dry_run', {
                 'link_id': chosen.id, 'ability_id': ability_id, 'paw': chosen.paw,
             })
-            self.operation.chain.append(chosen) if chosen not in self.operation.chain else None
             return
 
         link_id = await self.operation.apply(chosen)
