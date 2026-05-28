@@ -1,0 +1,9 @@
+enabled: true
+anthropic:
+  api_key_env: ANTHROPIC_API_KEY
+  default_model: claude-sonnet-4-7
+safety:
+  default_dry_run: true
+  allowlist:
+    tactics: [discovery, collection]
+  audit_dir: data/ai_audit

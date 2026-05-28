@@ -1,0 +1,12 @@
+enabled: true
+mcp:
+  transport:
+    stdio: false        # set true to expose Caldera over stdio (Claude Code launches the process)
+    sse: true           # mount SSE under /plugin/mcp_server/sse
+    bind_loopback: true # if false, REQUIRE bearer token
+  require_approval: true
+  approval_token_ttl_seconds: 60
+  allowlist:
+    tactics: [discovery, collection]
+    deny_tactics: [impact]
+  audit_dir: data/ai_audit

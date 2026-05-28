@@ -1,0 +1,19 @@
+anthropic:
+  api_key_env: ANTHROPIC_API_KEY
+  default_model: claude-sonnet-4-7
+  plan_model: claude-opus-4-7
+  max_tokens: 4096
+safety:
+  default_dry_run: true
+  require_human_approval: true
+  allowlist:
+    tactics: [discovery, collection]
+    technique_ids: []
+    ability_ids: []
+    deny_tactics: [impact]
+  scope:
+    paws: []
+    cidrs: []
+  audit_dir: data/ai_audit
+  max_calls_per_operation: 50
+  max_tokens_per_operation: 500000
