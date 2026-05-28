@@ -1,0 +1,29 @@
+---
+
+id: 7c2b0e10-0000-0000-0000-000000000001
+name: llm
+description: |
+  LLM-driven planner that delegates per-tick decisions to Anthropic Claude.
+  On each tick the planner gathers candidate links (already validated against
+  requirements and platform), filters them through an AbilityAllowlist, and asks
+  Claude to choose exactly one via a forced tool_use schema (choose_next_link).
+  Defaults to dry_run mode: chosen links are DISCARDED instead of executed.
+  Set params.dry_run: false to allow live execution; a per-operation max_calls cap
+  bounds Anthropic spend. All decisions are written to data/ai_audit/<op_id>.jsonl.
+  Requires the anthropic Python SDK and the ANTHROPIC_API_KEY env var.
+module: plugins.llm_planner.app.llm_planner
+params:
+  model: claude-sonnet-4-7
+  max_calls: 30
+  max_tokens: 1024
+  dry_run: true
+  allowlist_tactics:
+    - discovery
+    - collection
+  allowlist_ability_ids: []
+  allowlist_technique_ids: []
+  deny_tactics:
+    - impact
+  audit_dir: data/ai_audit
+ignore_enforcement_modules: []
+allow_repeatable_abilities: false
