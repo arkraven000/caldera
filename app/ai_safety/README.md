@@ -16,8 +16,9 @@ Each variation imports the same primitives from this package, so a policy change
 - `audit.py` — `AuditLogger(operation_id, root)`. Appends JSONL to `data/ai_audit/<op_id>.jsonl`. Best-effort: never raises into the planner loop.
 - `scoping.py` — `TargetScope(paws, cidrs)`. Restrict agents by paw and target IPs by CIDR.
 - `catalog.py` — `build_ability_catalog(data_svc)` and `compact_*` projections used to fit Caldera objects into prompt budgets.
-- `anthropic_client.py` — `get_async_client()` factory + `cache_block(text)` helper for prompt-cached content. Pinned model ids: `MODEL_PLAN=claude-opus-4-7`, `MODEL_STEP=claude-sonnet-4-7`.
+- `anthropic_client.py` — `get_async_client()` factory + `cache_block(text)` helper for prompt-cached content + `load_agent_brief()` which reads `agent_brief.md`. Pinned model ids: `MODEL_PLAN=claude-opus-4-7`, `MODEL_STEP=claude-sonnet-4-7`.
 - `tools_schema.py` — JSONSchema tool definitions: `CHOOSE_NEXT_LINK_TOOL` (used by the in-server planner) and `CALDERA_TOOL_SPECS` (used by the standalone client + MCP server).
+- `agent_brief.md` — the cached red-team operating manual: Caldera vocabulary, ATT&CK tactic ordering, workflow heuristics, failure modes, and the safety contract. Loaded automatically by Variations B and C as the first system block (cache-hot across ticks); Variation A exposes it via the `get_agent_brief` MCP tool so the client-side Claude Code session can pull it once per session.
 
 ## Safety posture
 

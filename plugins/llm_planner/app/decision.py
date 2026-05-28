@@ -7,7 +7,7 @@ so the model MUST emit a structured decision — no free-text actions reach the 
 import json
 import logging
 
-from app.ai_safety import CHOOSE_NEXT_LINK_TOOL, MODEL_STEP
+from app.ai_safety import CHOOSE_NEXT_LINK_TOOL, MODEL_STEP, load_agent_brief
 from app.ai_safety.anthropic_client import cache_block
 from plugins.llm_planner.app.state_view import candidate_links_view, state_view
 
@@ -15,15 +15,19 @@ from plugins.llm_planner.app.state_view import candidate_links_view, state_view
 log = logging.getLogger(__name__)
 
 
+# Session-specific instructions paired with the cached agent_brief.md block.
+# The brief carries the long-form grounding; this block adds the planner-tick-
+# specific contract (one ability per tick, must come from the candidate list).
 PLANNER_SYSTEM = (
-    "You are the decision engine for a Caldera adversary-emulation planner running in an "
-    "authorized lab environment. On each tick you receive a compact view of the operation "
-    "state and a list of candidate abilities that are *already validated* (requirements met, "
-    "agent matched). Choose exactly ONE candidate that best advances the operation toward "
-    "useful discovery and reconnaissance while respecting the listed denied tactics. "
-    "Prefer reconnaissance and collection before any state change. If no candidate is a "
-    "productive step, choose the one with the most diagnostic value (e.g. lowest-risk discovery). "
-    "Always emit `confidence`; a low confidence will be surfaced to the human reviewer."
+    "You are the per-tick decision engine for the Caldera in-server LLM planner. "
+    "The cached `Caldera red-team agent brief` is your operating manual. "
+    "Each call you receive a compact view of the operation state and a list of "
+    "*pre-validated* candidate abilities (requirements met, agent matched, "
+    "allowlist-permitted). You MUST choose exactly ONE ability_id from that "
+    "list — there is no free-text action. Prefer reconnaissance and collection "
+    "ahead of state-changing tactics. If no candidate is a productive next "
+    "step, pick the lowest-risk discovery rather than padding turns. Always "
+    "emit honest `confidence`; low confidence surfaces to the human reviewer."
 )
 
 
@@ -47,10 +51,16 @@ async def decide(client, operation, links, model: str = MODEL_STEP, max_tokens: 
         }, default=str)},
     ]
 
+    brief = load_agent_brief()
+    system = []
+    if brief:
+        system.append(cache_block(brief))
+    system.append(cache_block(PLANNER_SYSTEM))
+
     resp = await client.messages.create(
         model=model,
         max_tokens=max_tokens,
-        system=[cache_block(PLANNER_SYSTEM)],
+        system=system,
         tools=[CHOOSE_NEXT_LINK_TOOL],
         tool_choice={'type': 'tool', 'name': 'choose_next_link'},
         messages=[{'role': 'user', 'content': user_content}],

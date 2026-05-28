@@ -10,6 +10,7 @@ from app.ai_safety import (
     MODEL_STEP,
     DEFAULT_MAX_TOKENS,
     get_async_client,
+    load_agent_brief,
 )
 from app.ai_safety.anthropic_client import cache_block
 from tools.claude_agent.prompts import PLANNER_SYSTEM, operator_goal_prompt
@@ -49,7 +50,14 @@ async def run(*, caldera_client, anthropic_client=None, operation_id: str, goal:
             {'type': 'text', 'text': operator_goal_prompt(operation_id, goal, mode)},
         ],
     }]
-    system = [cache_block(PLANNER_SYSTEM)]
+    # System prompt: long-form brief first (cached, paid once), then the
+    # session-specific PLANNER_SYSTEM reminders. Order matters — Anthropic caches
+    # by prefix, so the brief stays cache-hot across ticks.
+    brief = load_agent_brief()
+    system = []
+    if brief:
+        system.append(cache_block(brief))
+    system.append(cache_block(PLANNER_SYSTEM))
 
     total_in = total_out = 0
     cache_in = 0

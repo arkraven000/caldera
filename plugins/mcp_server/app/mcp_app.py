@@ -3,7 +3,7 @@
 import logging
 import os
 
-from app.ai_safety import AbilityAllowlist
+from app.ai_safety import AbilityAllowlist, load_agent_brief
 from plugins.mcp_server.app.tools import CalderaMCPTools
 
 
@@ -75,5 +75,15 @@ def build_mcp_server(services):
     async def summarize_operation(operation_id: str) -> dict:
         """One-shot natural-language summary of operation progress (read-only)."""
         return await tools_facade.summarize_operation(operation_id)
+
+    @mcp.tool()
+    async def get_agent_brief() -> str:
+        """Return the Caldera red-team agent brief — vocabulary, ATT&CK tactic
+        ordering, workflow, failure modes, and safety contract. Read this once
+        at the start of every session before driving an operation. The brief
+        is the operating manual every variation shares; both the standalone
+        client and the in-server planner load it automatically, but the MCP
+        variation hosts Claude on the client side so the client must fetch it."""
+        return load_agent_brief() or '(agent_brief.md missing on the Caldera server)'
 
     return mcp

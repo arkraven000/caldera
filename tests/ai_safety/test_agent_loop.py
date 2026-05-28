@@ -121,6 +121,11 @@ async def test_agent_loop_caches_catalog_in_first_user_message(tmp_path):
 
     system_blocks = sent['system']
     assert system_blocks[0].get('cache_control') == {'type': 'ephemeral'}
+    # The brief rides as the first system block so it stays cache-hot across ticks.
+    assert 'agent brief' in system_blocks[0]['text'].lower() or 'caldera' in system_blocks[0]['text'].lower()
+    # The brief alone should be at least ~1 kB — if PLANNER_SYSTEM gets prepended,
+    # this would still hold; if the brief stops loading, this fails.
+    assert len(system_blocks[0]['text']) > 1000
 
 
 @pytest.mark.asyncio

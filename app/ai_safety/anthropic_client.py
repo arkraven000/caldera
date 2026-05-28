@@ -6,10 +6,14 @@ a clean error if anthropic is not installed or the API key is missing.
 """
 
 import os
+from pathlib import Path
 
 MODEL_PLAN = 'claude-opus-4-7'
 MODEL_STEP = 'claude-sonnet-4-7'
 DEFAULT_MAX_TOKENS = 4096
+
+_BRIEF_PATH = Path(__file__).parent / 'agent_brief.md'
+_brief_cache: str = None
 
 
 class AnthropicNotConfigured(RuntimeError):
@@ -38,3 +42,22 @@ def cache_block(text: str) -> dict:
     static blocks (ability catalog, adversary profile) that repeat across requests.
     """
     return {'type': 'text', 'text': text, 'cache_control': {'type': 'ephemeral'}}
+
+
+def load_agent_brief() -> str:
+    """Return the contents of agent_brief.md, the cached red-team grounding doc
+    that every AI variation prepends to its system prompt.
+
+    Read once and memoized — the file is ~7 kB and the path is fixed. If the
+    file is missing (e.g. someone removed it), return empty string rather than
+    raising: the planner loop runs degraded but functional, and a missing
+    brief is a deployment issue, not a model-driven failure mode.
+    """
+    global _brief_cache
+    if _brief_cache is not None:
+        return _brief_cache
+    try:
+        _brief_cache = _BRIEF_PATH.read_text(encoding='utf-8')
+    except OSError:
+        _brief_cache = ''
+    return _brief_cache

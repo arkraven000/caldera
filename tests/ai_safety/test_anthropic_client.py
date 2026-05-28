@@ -83,3 +83,40 @@ def test_cache_block_preserves_empty_string():
     block = cache_block('')
     assert block['text'] == ''
     assert block['cache_control']['type'] == 'ephemeral'
+
+
+def test_load_agent_brief_returns_real_content():
+    """The shipped brief must load and contain the load-bearing safety phrases.
+    If someone deletes the file or empties its content, this fails so the
+    loss is caught in CI rather than silently degrading model behavior."""
+    from app.ai_safety.anthropic_client import load_agent_brief, _BRIEF_PATH
+    text = load_agent_brief()
+    assert _BRIEF_PATH.exists()
+    assert len(text) > 1000
+    # Load-bearing phrases — if any of these drops out, the brief has been
+    # gutted in a way that should require explicit test update.
+    assert 'authorized' in text.lower()
+    assert 'propose' in text.lower()
+    assert 'allowlist' in text.lower()
+    assert 'discovery' in text.lower()
+
+
+def test_load_agent_brief_is_memoized():
+    from app.ai_safety import anthropic_client
+    # Clear any prior cache, then load twice and assert same object identity.
+    anthropic_client._brief_cache = None
+    first = anthropic_client.load_agent_brief()
+    second = anthropic_client.load_agent_brief()
+    assert first is second
+
+
+def test_load_agent_brief_returns_empty_when_file_missing(monkeypatch):
+    """Missing brief is a deployment issue, not a model failure mode — loader
+    returns '' so callers can degrade gracefully (skip the cache_block)."""
+    from pathlib import Path
+    from app.ai_safety import anthropic_client
+    anthropic_client._brief_cache = None
+    monkeypatch.setattr(anthropic_client, '_BRIEF_PATH', Path('/nonexistent/agent_brief.md'))
+    assert anthropic_client.load_agent_brief() == ''
+    # Re-prime the real cache so other tests see the real brief.
+    anthropic_client._brief_cache = None
