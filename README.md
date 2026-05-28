@@ -59,6 +59,81 @@ These plugins are ready to use but are not included by default and are not maint
 - **[CalTack](https://github.com/mitre/caltack.git)** (embedded ATT&CK website)
 - **[SAML](https://github.com/mitre/saml)** (SAML authentication)
 
+## AI Integrations (Anthropic Claude)
+
+This fork adds an opt-in **Anthropic Claude** integration layer so AI consumers — local Claude Code, hosted Claude agents, and Caldera itself — can drive adversary-emulation operations. Three independent variations are shipped side-by-side so you can pick the surface that fits each use-case, and **all three import the same safety module** so policy lives in one place.
+
+| Variation | Where | Best for |
+|---|---|---|
+| **A — MCP server** | `plugins/mcp_server/` | A local operator running Claude Code on their laptop |
+| **B — Standalone client** | `tools/claude_agent/` | Hosted Claude (Claude on the web) or any automation driving Caldera over REST |
+| **C — In-server LLM planner** | `plugins/llm_planner/` | Letting Caldera itself decide the next ability each tick, autonomously |
+
+### How it works
+
+**Variation A — MCP server.** The `mcp_server` plugin exposes Caldera as a Model Context Protocol server. Local Claude Code connects (stdio or SSE) and gets read-only tools (`list_operations`, `list_abilities`, `get_facts`, `summarize_operation`) plus a gated mutation flow: `propose_next_link` mints a **single-use 60-second approval token** that `approve_and_execute_link` must consume before the link runs on an agent.
+
+```bash
+pip install -r plugins/mcp_server/requirements.txt
+MCP_STDIO=1 python3 server.py --insecure --build
+claude mcp add caldera --command python3 --args server.py --args --insecure
+```
+
+**Variation B — Standalone client.** `tools/claude_agent/` is a self-contained Python module that uses the Anthropic SDK's tool-use loop to drive a remote Caldera over its REST API. **Zero server-side changes.** The ability catalog is sent as a prompt-cached block, so subsequent ticks read the cache rather than re-paying for it.
+
+```bash
+pip install -r tools/claude_agent/requirements.txt
+export ANTHROPIC_API_KEY=sk-ant-... CALDERA_API_KEY=ADMIN123
+python3 -m tools.claude_agent \
+  --operation <op-id> --goal "enumerate users and sensitive files" --mode dry-run
+```
+
+Three modes: `dry-run` (default — model reasons, nothing executes), `interactive` (y/N/e prompt per mutating call), `auto` (unattended; refuses to start without `--allowlist`).
+
+**Variation C — In-server LLM planner.** `plugins/llm_planner/` registers a `LogicalPlanner` that delegates the per-tick "what next?" decision to Claude. The candidate list is pre-filtered by the allowlist before the model ever sees it, then the prompt forces a structured `choose_next_link` tool call so the model **cannot emit free-text actions** that reach an agent.
+
+```bash
+pip install -r plugins/llm_planner/requirements.txt
+export ANTHROPIC_API_KEY=sk-ant-...
+# Add 'llm_planner' to plugins: in conf/default.yml, then create an operation
+# with planner: llm. Defaults: dry_run=true, allowlist=[discovery,collection].
+```
+
+### Shared safety module — `app/ai_safety/`
+
+Every variation imports from one place so policy edits are one-place:
+
+- **`AbilityAllowlist`** — filter by `ability_id` / `tactic` / `technique_id` with explicit deny lists. Deny always wins.
+- **`AuditLogger`** — JSONL per operation at `data/ai_audit/<operation_id>.jsonl`. Best-effort writes never raise into the planner loop.
+- **`TargetScope`** — restrict to specific agent paws and CIDR ranges.
+- **`get_async_client()`** — Anthropic SDK factory; raises `AnthropicNotConfigured` on missing key or missing SDK.
+- **`CHOOSE_NEXT_LINK_TOOL` / `CALDERA_TOOL_SPECS`** — JSONSchema tool definitions reused by every variation. A dispatch ↔ spec sync test prevents drift.
+
+### Default safety posture
+
+- **Dry-run by default.** Proposed links are marked `DISCARD`; nothing runs on any agent.
+- **Allowlist required for autonomous mode.** Defaults to `tactics: [discovery, collection]`, denies `[impact]`. Auto mode refuses to start without at least one positive constraint.
+- **Fail-closed.** Missing `ANTHROPIC_API_KEY`, missing SDK, or Anthropic API error halts the planner cleanly — it does NOT fall back to the atomic planner.
+- **Single-use approval tokens** (MCP). 60-second TTL, bound to `(operation, link)`. Replay fails closed.
+- **Audit log of every decision** — model reasoning, confidence, ability chosen, allowlist denials, tool errors, and Anthropic token usage.
+- **Live execution is opt-in per operation.** Flip `dry_run: false` on the planner params (Variation C), pass `--mode interactive` or `--mode auto` (Variation B), or call `approve_and_execute_link` with a fresh token (Variation A).
+
+### Tests and verification
+
+`tests/ai_safety/` ships **58 passing tests** covering every variation end-to-end with stubbed externals:
+
+```bash
+python3 -m pytest tests/ai_safety/ -v --confcutdir=tests/ai_safety
+```
+
+For deep-dive docs see:
+- [`app/ai_safety/README.md`](app/ai_safety/README.md) — shared safety primitives
+- [`plugins/mcp_server/README.md`](plugins/mcp_server/README.md) — Variation A (local Claude Code via MCP)
+- [`tools/claude_agent/README.md`](tools/claude_agent/README.md) — Variation B (standalone external client)
+- [`plugins/llm_planner/README.md`](plugins/llm_planner/README.md) — Variation C (in-server planner)
+
+> **Authorized use only.** These integrations are intended for adversary-emulation work in lab environments, on systems the operator is explicitly authorized to test. See [Security](#Security) for deployment guidance.
+
 ## Requirements
 
 These requirements are for the computer running the core framework:
