@@ -108,8 +108,23 @@ CALDERA_TOOL_SPECS = [
         },
     },
     {
+        'name': 'list_potential_links',
+        'description': 'List runnable candidate links for an operation right now (executor, command preview, '
+                       'paw, ability). Does NOT execute. Filter by paw if you only care about one agent.',
+        'input_schema': {
+            'type': 'object',
+            'properties': {
+                'operation_id': {'type': 'string'},
+                'paw': {'type': 'string', 'description': 'Optional: restrict candidates to one agent.'},
+            },
+            'required': ['operation_id'],
+        },
+    },
+    {
         'name': 'propose_link',
-        'description': 'Build a potential link for an operation WITHOUT executing it. Returns the link payload for review.',
+        'description': 'Locate a single runnable candidate by (ability_id, paw) WITHOUT executing it. '
+                       'Returns the full link payload to hand to execute_link, or an error if no '
+                       'such link is currently runnable (requirements unmet, wrong platform, etc.).',
         'input_schema': {
             'type': 'object',
             'properties': {
@@ -122,12 +137,14 @@ CALDERA_TOOL_SPECS = [
     },
     {
         'name': 'execute_link',
-        'description': 'Execute a previously proposed link. NOOP in dry-run mode. Returns the live link id.',
+        'description': 'Execute a previously proposed link. The payload MUST be the full dict returned '
+                       'by propose_link / list_potential_links (it includes executor.name, executor.command, '
+                       'paw, ability). NOOP in dry-run mode.',
         'input_schema': {
             'type': 'object',
             'properties': {
                 'operation_id': {'type': 'string'},
-                'link_payload': {'type': 'object', 'description': 'The payload returned from propose_link.'},
+                'link_payload': {'type': 'object', 'description': 'The full payload returned from propose_link.'},
             },
             'required': ['operation_id', 'link_payload'],
         },

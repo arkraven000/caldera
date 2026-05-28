@@ -53,9 +53,17 @@ async def _propose_link(client, *, operation_id: str, ability_id: str, paw: str,
     return await client.propose_link(operation_id, ability_id, paw)
 
 
+async def _list_potential_links(client, *, operation_id: str, paw: str = None, **_):
+    return await client.list_potential_links(operation_id, paw=paw)
+
+
 async def _execute_link(client, *, operation_id: str, link_payload: dict, mode: str = 'interactive', **_):
     if mode == 'dry-run':
-        return {'status': 'dry-run', 'message': 'execute_link suppressed; would have executed', 'link_payload': link_payload}
+        ability_id = (link_payload or {}).get('ability', {}).get('ability_id')
+        return {'status': 'dry-run',
+                'message': 'execute_link suppressed; would have executed',
+                'ability_id': ability_id,
+                'paw': (link_payload or {}).get('paw')}
     return await client.execute_link(operation_id, link_payload)
 
 
@@ -100,6 +108,7 @@ DISPATCH = {
     'get_facts': _get_facts,
     'add_fact': _add_fact,
     'propose_link': _propose_link,
+    'list_potential_links': _list_potential_links,
     'execute_link': _execute_link,
     'wait_for_link': _wait_for_link,
     'pause_operation': _pause_operation,
