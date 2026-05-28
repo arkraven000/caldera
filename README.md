@@ -4,17 +4,28 @@
 [![codecov](https://codecov.io/gh/mitre/caldera/branch/master/graph/badge.svg)](https://codecov.io/gh/mitre/caldera)
 [![Documentation Status](https://readthedocs.org/projects/caldera/badge/?version=stable)](http://caldera.readthedocs.io/?badge=stable)
 
-# MITRE Caldera&trade;
+# Caldera + AI &mdash; a Claude-integrated fork of MITRE Caldera&trade;
 
-MITRE Caldera&trade; is a cyber security platform designed to easily automate adversary emulation, assist manual red-teams, and automate incident response.
+> **This repository is a modification of the upstream [MITRE Caldera&trade;](https://github.com/mitre/caldera) source code.** It tracks upstream's core C2, plugin system, REST API, and ATT&CK-based adversary primitives, and **adds a first-party Anthropic Claude integration and management layer** for AI-driven adversary emulation. The upstream project is unchanged in name and remains the authoritative source for the base framework; this fork's contribution is the AI surface around it.
 
-It is built on the [MITRE ATT&CK™ framework](https://attack.mitre.org/) and is an active research project at MITRE.
+MITRE Caldera&trade; is a cyber security platform designed to easily automate adversary emulation, assist manual red-teams, and automate incident response. It is built on the [MITRE ATT&CK™ framework](https://attack.mitre.org/) and is an active research project at MITRE.
 
-The framework consists of two components:
+### What this fork adds
 
-1) **The core system**. This is the framework code, consisting of what is available in this repository. Included is
-an asynchronous command-and-control (C2) server with a REST API and a web interface.
-2) **Plugins**. These repositories expand the core framework capabilities and providing additional functionality. Examples include agents, reporting, collections of TTPs and more.
+The base framework is preserved verbatim. On top of it, this fork ships:
+
+- **Three parallel AI integration surfaces** so different consumers can drive Caldera operations with Claude — a Model Context Protocol server for local Claude Code, a standalone external client for hosted/automated Claude agents, and an in-server LLM planner for autonomous decision-making. See [AI Integrations (Anthropic Claude)](#ai-integrations-anthropic-claude) below.
+- **A shared safety and management module (`app/ai_safety/`)** — ability allowlist, target scope, JSONL audit log, approval-token store, and reusable JSONSchema tool definitions — so policy lives in one place and every variation enforces the same dry-run-first defaults.
+- **An expanded test suite (`tests/ai_safety/`, 58 tests)** that exercises every variation end-to-end against stubbed externals so the AI layer's safety guarantees are mechanically verifiable.
+
+Nothing in `app/` outside `app/ai_safety/` was modified; running this fork without an `ANTHROPIC_API_KEY` is operationally identical to running upstream Caldera. The AI layer is strictly opt-in and the Anthropic SDK is an optional dependency.
+
+### Base framework recap
+
+The unmodified framework consists of two components:
+
+1) **The core system** — the framework code in this repository, including an asynchronous command-and-control (C2) server with a REST API and a web interface.
+2) **Plugins** — repositories that expand the core framework's capabilities (agents, reporting, collections of TTPs, etc.).
 
 ## Resources & Socials
 * 📜 [Documentation, training, and use-cases](https://caldera.readthedocs.io/en/latest/)
